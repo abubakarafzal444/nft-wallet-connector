@@ -156,6 +156,7 @@ export default class Class extends React.Component {
    * @param count The current try count.
    */
   pollWallets = (count = 0) => {
+    console.log("test poll");
     const wallets = [];
     for (const key in window.cardano) {
       if (window.cardano[key].enable && wallets.indexOf(key) === -1) {
@@ -1196,6 +1197,8 @@ export default class Class extends React.Component {
   };
 
   async componentDidMount() {
+    console.log("test poll");
+
     this.pollWallets();
     await this.refreshData();
   }

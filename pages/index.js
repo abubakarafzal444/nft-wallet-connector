@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Tab,
   Tabs,
@@ -63,48 +63,57 @@ let Buffer = require("buffer/").Buffer;
 let blake = require("blakejs");
 
 const App = () => {
-  const [state, setState] = useState({
-    selectedTabId: "1",
-    whichWalletSelected: undefined,
-    walletFound: false,
-    walletIsEnabled: false,
-    walletName: undefined,
-    walletIcon: undefined,
-    walletAPIVersion: undefined,
-    wallets: [],
-    networkId: undefined,
-    Utxos: undefined,
-    CollatUtxos: undefined,
-    balance: undefined,
-    changeAddress: undefined,
-    rewardAddress: undefined,
-    usedAddress: undefined,
-    txBody: undefined,
-    txBodyCborHex_unsigned: "",
-    txBodyCborHex_signed: "",
-    submittedTxHash: "",
-    addressBech32SendADA:
-      "addr_test1qrt7j04dtk4hfjq036r2nfewt59q8zpa69ax88utyr6es2ar72l7vd6evxct69wcje5cs25ze4qeshejy828h30zkydsu4yrmm",
-    lovelaceToSend: 3000000,
-    assetNameHex: "4c494645",
-    assetPolicyIdHex:
-      "ae02017105527c6c0c9840397a39cc5ca39fabe5b9998ba70fda5f2f",
-    assetAmountToSend: 5,
-    addressScriptBech32:
-      "addr_test1wpnlxv2xv9a9ucvnvzqakwepzl9ltx7jzgm53av2e9ncv4sysemm8",
-    datumStr: "12345678",
-    plutusScriptCborHex: "4e4d01000033222220051200120011",
-    transactionIdLocked: "",
-    transactionIndxLocked: 0,
-    lovelaceLocked: 3000000,
-    manualFee: 900000,
-  });
+  const [selectedTabId, setSelectedTabId] = useState("1");
+  const [whichWalletSelected, setWhichWalletSelected] = useState(undefined);
+  const [walletFound, setWalletFound] = useState(false);
+  const [walletIsEnabled, setWalletIsEnabled] = useState(false);
+  const [walletName, setWalletName] = useState(undefined);
+  const [walletIcon, setWalletIcon] = useState(undefined);
+
+  const [walletAPIVersion, setWalletAPIVersion] = useState(undefined);
+  const [wallets, setWallets] = useState([]);
+  const [networkId, setNetworkId] = useState(undefined);
+  const [Utxos, setUtxos] = useState(undefined);
+  const [CollatUtxos, setCollatUtxos] = useState(undefined);
+  const [balance, setBalance] = useState(undefined);
+
+  const [changeAddress, setChangeAddress] = useState(undefined);
+  const [rewardAddress, setRewardAddress] = useState(undefined);
+  const [usedAddress, setUsedAddress] = useState(undefined);
+  const [txBody, setTxBody] = useState(undefined);
+  const [txBodyCborHex_unsigned, setTxBodyCborHex_unsigned] = useState("");
+  const [txBodyCborHex_signed, setTxBodyCborHex_signed] = useState("");
+
+  const [submittedTxHash, setSubmittedTxHash] = useState("");
+  const [addressBech32SendADA, setAddressBech32SendADA] = useState(
+    "addr_test1qrt7j04dtk4hfjq036r2nfewt59q8zpa69ax88utyr6es2ar72l7vd6evxct69wcje5cs25ze4qeshejy828h30zkydsu4yrmm"
+  );
+  const [lovelaceToSend, setLovelaceToSend] = useState(3000000);
+  const [assetNameHex, setAssetNameHex] = useState("4c494645");
+  const [assetPolicyIdHex, setAssetPolicyIdHex] = useState(
+    "ae02017105527c6c0c9840397a39cc5ca39fabe5b9998ba70fda5f2f"
+  );
+  const [assetAmountToSend, setAssetAmountToSend] = useState(5);
+
+  const [addressScriptBech32, setAddressScriptBech32] = useState(
+    "addr_test1wpnlxv2xv9a9ucvnvzqakwepzl9ltx7jzgm53av2e9ncv4sysemm8"
+  );
+  const [datumStr, setDatumStr] = useState("12345678");
+  const [plutusScriptCborHex, setPlutusScriptCborHex] = useState(
+    "4e4d01000033222220051200120011"
+  );
+  const [transactionIdLocked, setTransactionIdLocked] = useState("");
+  const [transactionIndxLocked, setTransactionIndxLocked] = useState(0);
+  const [lovelaceLocked, setLovelaceLocked] = useState(3000000);
+  const [manualFee, setManualFee] = useState(900000);
+
   /**
    * When the wallet is connect it returns the connector which is
    * written to this API variable and all the other operations
    * run using this API object
    */
-  const [API, setAPI] = useState(undefined);
+  // const [API, setAPI] = useState(undefined);
+  const API = useRef(null);
 
   /**
    * Protocol parameters
@@ -159,14 +168,16 @@ const App = () => {
       }, 1000);
       return;
     }
-    setState({ ...state, wallets: wallets, whichWalletSelected: wallets[0] });
+    if (wallets.length > 0) {
+      setWallets(wallets);
+      setWhichWalletSelected(wallets[0]);
+    }
   };
-
   /**
    * Handles the tab selection on the user form
    * @param tabId
    */
-  const handleTabId = (tabId) => setState({ ...state, selectedTabId: tabId });
+  const handleTabId = (tabId) => setSelectedTabId(tabId);
 
   /**
    * Handles the radio buttons on the form that
@@ -175,7 +186,7 @@ const App = () => {
    */
   const handleWalletSelect = (obj) => {
     const whichWalletSelected = obj.target.value;
-    setState({ ...state, whichWalletSelected });
+    setWhichWalletSelected(whichWalletSelected);
   };
 
   /**
@@ -188,7 +199,7 @@ const App = () => {
     // const blake2bhash = blake.blake2b(cbor, 0, 28);
 
     const script = PlutusScript.from_bytes(
-      Buffer.from(state.plutusScriptCborHex, "hex")
+      Buffer.from(plutusScriptCborHex, "hex")
     );
     // const blake2bhash = blake.blake2b(script.to_bytes(), 0, 28);
     const blake2bhash =
@@ -221,9 +232,9 @@ const App = () => {
    */
 
   const checkIfWalletFound = () => {
-    const walletKey = state.whichWalletSelected;
+    const walletKey = whichWalletSelected;
     const walletFound = !!window?.cardano?.[walletKey];
-    setState({ ...state, walletFound });
+    setWalletFound(walletFound);
     return walletFound;
   };
 
@@ -236,12 +247,12 @@ const App = () => {
     let walletIsEnabled = false;
 
     try {
-      const walletName = state.whichWalletSelected;
+      const walletName = whichWalletSelected;
       walletIsEnabled = await window.cardano[walletName].isEnabled();
     } catch (err) {
       console.log(err);
     }
-    setState({ ...state, walletIsEnabled });
+    setWalletIsEnabled(walletIsEnabled);
 
     return walletIsEnabled;
   };
@@ -255,10 +266,10 @@ const App = () => {
    */
 
   const enableWallet = async () => {
-    const walletKey = state.whichWalletSelected;
+    const walletKey = whichWalletSelected;
     try {
       const APIResult = await window.cardano[walletKey].enable();
-      setAPI(APIResult);
+      API = APIResult;
     } catch (err) {
       console.log(err);
     }
@@ -271,9 +282,9 @@ const App = () => {
    * @returns {*}
    */
   const getAPIVersion = () => {
-    const walletKey = state.whichWalletSelected;
+    const walletKey = whichWalletSelected;
     const walletAPIVersion = window?.cardano?.[walletKey].apiVersion;
-    setState({ ...state, walletAPIVersion });
+    setWalletAPIVersion(walletAPIVersion);
     return walletAPIVersion;
   };
 
@@ -284,9 +295,9 @@ const App = () => {
    */
 
   const getWalletName = () => {
-    const walletKey = state.whichWalletSelected;
+    const walletKey = whichWalletSelected;
     const walletName = window?.cardano?.[walletKey].name;
-    setState({ ...state, walletName });
+    setWalletName(walletName);
     return walletName;
   };
   /**
@@ -299,7 +310,7 @@ const App = () => {
   const getNetworkId = async () => {
     try {
       const networkId = await API.getNetworkId();
-      setState({ ...state, networkId });
+      setNetworkId(networkId);
     } catch (err) {
       console.log(err);
     }
@@ -378,7 +389,7 @@ const App = () => {
         Utxos.push(obj);
         // console.log(`utxo: ${str}`)
       }
-      setState({ ...state, Utxos });
+      setUtxos(Utxos);
     } catch (err) {
       console.log(err);
     }
@@ -399,7 +410,7 @@ const App = () => {
     try {
       let collateral = [];
 
-      const wallet = state.whichWalletSelected;
+      const wallet = whichWalletSelected;
       if (wallet === "nami") {
         collateral = await API.experimental.getCollateral();
       } else {
@@ -411,7 +422,7 @@ const App = () => {
         CollatUtxos.push(utxo);
         // console.log(utxo)
       }
-      setState({ ...state, CollatUtxos });
+      setCollatUtxos(CollatUtxos);
     } catch (err) {
       console.log(err);
     }
@@ -426,11 +437,13 @@ const App = () => {
 
   const getBalance = async () => {
     try {
+      console.log("API", API);
       const balanceCBORHex = await API.getBalance();
       const balance = Value.from_bytes(Buffer.from(balanceCBORHex, "hex"))
         .coin()
         .to_str();
-      setState({ ...state, balance });
+      setBalance(balance);
+      console.log("balamce", balance);
     } catch (err) {
       console.log(err);
     }
@@ -447,7 +460,7 @@ const App = () => {
       const changeAddress = Address.from_bytes(
         Buffer.from(raw, "hex")
       ).to_bech32();
-      setState({ ...state, changeAddress });
+      setChangeAddress(changeAddress);
     } catch (err) {
       console.log(err);
     }
@@ -465,7 +478,7 @@ const App = () => {
         Buffer.from(rawFirst, "hex")
       ).to_bech32();
       // console.log(rewardAddress)
-      setState({ ...state, rewardAddress });
+      setRewardAddress(rewardAddress);
     } catch (err) {
       console.log(err);
     }
@@ -483,7 +496,7 @@ const App = () => {
         Buffer.from(rawFirst, "hex")
       ).to_bech32();
       // console.log(rewardAddress)
-      setState({ ...state, usedAddress });
+      setUsedAddress(usedAddress);
     } catch (err) {
       console.log(err);
     }
@@ -502,7 +515,7 @@ const App = () => {
         await getAPIVersion();
         await getWalletName();
         const walletEnabled = await enableWallet();
-        if (walletEnabled) {
+        if (walletEnabled && API) {
           await getNetworkId();
           await getUtxos();
           await getCollateral();
@@ -511,36 +524,29 @@ const App = () => {
           await getRewardAddresses();
           await getUsedAddresses();
         } else {
-          setState({
-            ...state,
-            Utxos: null,
-            CollatUtxos: null,
-            balance: null,
-            changeAddress: null,
-            rewardAddress: null,
-            usedAddress: null,
-
-            txBody: null,
-            txBodyCborHex_unsigned: "",
-            txBodyCborHex_signed: "",
-            submittedTxHash: "",
-          });
+          setUtxos(null);
+          setCollatUtxos(null);
+          setBalance(null);
+          setChangeAddress(null);
+          setRewardAddress(null);
+          setUsedAddress(null);
+          setTxBody(null);
+          setTxBodyCborHex_unsigned("");
+          setTxBodyCborHex_signed("");
+          setSubmittedTxHash("");
         }
       } else {
-        setState({
-          ...state,
-          walletIsEnabled: false,
-          Utxos: null,
-          CollatUtxos: null,
-          balance: null,
-          changeAddress: null,
-          rewardAddress: null,
-          usedAddress: null,
-          txBody: null,
-          txBodyCborHex_unsigned: "",
-          txBodyCborHex_signed: "",
-          submittedTxHash: "",
-        });
+        setWalletIsEnabled(false);
+        setUtxos(null);
+        setCollatUtxos(null);
+        setBalance(null);
+        setChangeAddress(null);
+        setRewardAddress(null);
+        setUsedAddress(null);
+        setTxBody(null);
+        setTxBodyCborHex_unsigned("");
+        setTxBodyCborHex_signed("");
+        setSubmittedTxHash("");
       }
     } catch (err) {
       console.log(err);
@@ -580,7 +586,7 @@ const App = () => {
    */
   const getTxUnspentOutputs = async () => {
     let txOutputs = TransactionUnspentOutputs.new();
-    for (const utxo of state.Utxos) {
+    for (const utxo of Utxos) {
       txOutputs.add(utxo.TransactionUnspentOutput);
     }
     return txOutputs;
@@ -599,15 +605,13 @@ const App = () => {
    */
   const buildSendADATransaction = async () => {
     const txBuilder = await initTransactionBuilder();
-    const shelleyOutputAddress = Address.from_bech32(
-      state.addressBech32SendADA
-    );
-    const shelleyChangeAddress = Address.from_bech32(state.changeAddress);
+    const shelleyOutputAddress = Address.from_bech32(addressBech32SendADA);
+    const shelleyChangeAddress = Address.from_bech32(changeAddress);
 
     txBuilder.add_output(
       TransactionOutput.new(
         shelleyOutputAddress,
-        Value.new(BigNum.from_str(state.lovelaceToSend.toString()))
+        Value.new(BigNum.from_str(lovelaceToSend.toString()))
       )
     );
 
@@ -649,15 +653,13 @@ const App = () => {
       Buffer.from(signedTx.to_bytes(), "utf8").toString("hex")
     );
     console.log(submittedTxHash);
-    setState({ ...state, submittedTxHash });
+    setSubmittedTxHash(submittedTxHash);
   };
 
   const buildSendTokenTransaction = async () => {
     const txBuilder = await initTransactionBuilder();
-    const shelleyOutputAddress = Address.from_bech32(
-      state.addressBech32SendADA
-    );
-    const shelleyChangeAddress = Address.from_bech32(state.changeAddress);
+    const shelleyOutputAddress = Address.from_bech32(addressBech32SendADA);
+    const shelleyChangeAddress = Address.from_bech32(changeAddress);
 
     let txOutputBuilder = TransactionOutputBuilder.new();
     txOutputBuilder = txOutputBuilder.with_address(shelleyOutputAddress);
@@ -666,11 +668,11 @@ const App = () => {
     let multiAsset = MultiAsset.new();
     let assets = Assets.new();
     assets.insert(
-      AssetName.new(Buffer.from(state.assetNameHex, "hex")), // Asset Name
-      BigNum.from_str(state.assetAmountToSend.toString()) // How much to send
+      AssetName.new(Buffer.from(assetNameHex, "hex")), // Asset Name
+      BigNum.from_str(assetAmountToSend.toString()) // How much to send
     );
     multiAsset.insert(
-      ScriptHash.from_bytes(Buffer.from(state.assetPolicyIdHex, "hex")), // PolicyID
+      ScriptHash.from_bytes(Buffer.from(assetPolicyIdHex, "hex")), // PolicyID
       assets
     );
 
@@ -720,28 +722,28 @@ const App = () => {
       Buffer.from(signedTx.to_bytes(), "utf8").toString("hex")
     );
     console.log(submittedTxHash);
-    setState({ ...state, submittedTxHash });
+    setSubmittedTxHash(submittedTxHash);
 
     // const txBodyCborHex_unsigned = Buffer.from(txBody.to_bytes(), "utf8").toString("hex");
-    // setState({...state,txBodyCborHex_unsigned, txBody})
+    //setTxBodyCborHex_unsigned(txBodyCborHex_unsigned);setTxBody(txBody)
   };
 
   const buildSendAdaToPlutusScript = async () => {
     const txBuilder = await initTransactionBuilder();
-    const ScriptAddress = Address.from_bech32(state.addressScriptBech32);
-    const shelleyChangeAddress = Address.from_bech32(state.changeAddress);
+    const ScriptAddress = Address.from_bech32(addressScriptBech32);
+    const shelleyChangeAddress = Address.from_bech32(changeAddress);
 
     let txOutputBuilder = TransactionOutputBuilder.new();
     txOutputBuilder = txOutputBuilder.with_address(ScriptAddress);
     const dataHash = hash_plutus_data(
-      PlutusData.new_integer(BigInt.from_str(state.datumStr))
+      PlutusData.new_integer(BigInt.from_str(datumStr))
     );
     txOutputBuilder = txOutputBuilder.with_data_hash(dataHash);
 
     txOutputBuilder = txOutputBuilder.next();
 
     txOutputBuilder = txOutputBuilder.with_value(
-      Value.new(BigNum.from_str(state.lovelaceToSend.toString()))
+      Value.new(BigNum.from_str(lovelaceToSend.toString()))
     );
     const txOutput = txOutputBuilder.build();
 
@@ -782,23 +784,20 @@ const App = () => {
       Buffer.from(signedTx.to_bytes(), "utf8").toString("hex")
     );
     console.log(submittedTxHash);
-    setState({
-      ...state,
-      submittedTxHash: submittedTxHash,
-      transactionIdLocked: submittedTxHash,
-      lovelaceLocked: state.lovelaceToSend,
-    });
+    setSubmittedTxHash(submittedTxHash);
+    setTransactionIdLocked(submittedTxHash);
+    setLovelaceLocked(lovelaceToSend);
   };
 
   const buildSendTokenToPlutusScript = async () => {
     const txBuilder = await initTransactionBuilder();
-    const ScriptAddress = Address.from_bech32(state.addressScriptBech32);
-    const shelleyChangeAddress = Address.from_bech32(state.changeAddress);
+    const ScriptAddress = Address.from_bech32(addressScriptBech32);
+    const shelleyChangeAddress = Address.from_bech32(changeAddress);
 
     let txOutputBuilder = TransactionOutputBuilder.new();
     txOutputBuilder = txOutputBuilder.with_address(ScriptAddress);
     const dataHash = hash_plutus_data(
-      PlutusData.new_integer(BigInt.from_str(state.datumStr))
+      PlutusData.new_integer(BigInt.from_str(datumStr))
     );
     txOutputBuilder = txOutputBuilder.with_data_hash(dataHash);
 
@@ -807,18 +806,18 @@ const App = () => {
     let multiAsset = MultiAsset.new();
     let assets = Assets.new();
     assets.insert(
-      AssetName.new(Buffer.from(state.assetNameHex, "hex")), // Asset Name
-      BigNum.from_str(state.assetAmountToSend.toString()) // How much to send
+      AssetName.new(Buffer.from(assetNameHex, "hex")), // Asset Name
+      BigNum.from_str(assetAmountToSend.toString()) // How much to send
     );
     multiAsset.insert(
-      ScriptHash.from_bytes(Buffer.from(state.assetPolicyIdHex, "hex")), // PolicyID
+      ScriptHash.from_bytes(Buffer.from(assetPolicyIdHex, "hex")), // PolicyID
       assets
     );
 
     // txOutputBuilder = txOutputBuilder.with_asset_and_min_required_coin(multiAsset, BigNum.from_str(protocolParams.coinsPerUtxoWord))
 
     txOutputBuilder = txOutputBuilder.with_coin_and_asset(
-      BigNum.from_str(state.lovelaceToSend.toString()),
+      BigNum.from_str(lovelaceToSend.toString()),
       multiAsset
     );
 
@@ -861,39 +860,34 @@ const App = () => {
       Buffer.from(signedTx.to_bytes(), "utf8").toString("hex")
     );
     console.log(submittedTxHash);
-    setState({
-      ...state,
-      submittedTxHash: submittedTxHash,
-      transactionIdLocked: submittedTxHash,
-      lovelaceLocked: state.lovelaceToSend,
-    });
+    setSubmittedTxHash(submittedTxHash);
+    setTransactionIdLocked(submittedTxHash);
+    setLovelaceLocked(lovelaceToSend);
   };
 
   const buildRedeemAdaFromPlutusScript = async () => {
     const txBuilder = await initTransactionBuilder();
-    const ScriptAddress = Address.from_bech32(state.addressScriptBech32);
-    const shelleyChangeAddress = Address.from_bech32(state.changeAddress);
+    const ScriptAddress = Address.from_bech32(addressScriptBech32);
+    const shelleyChangeAddress = Address.from_bech32(changeAddress);
 
     txBuilder.add_input(
       ScriptAddress,
       TransactionInput.new(
-        TransactionHash.from_bytes(
-          Buffer.from(state.transactionIdLocked, "hex")
-        ),
-        state.transactionIndxLocked.toString()
+        TransactionHash.from_bytes(Buffer.from(transactionIdLocked, "hex")),
+        transactionIndxLocked.toString()
       ),
-      Value.new(BigNum.from_str(state.lovelaceLocked.toString()))
+      Value.new(BigNum.from_str(lovelaceLocked.toString()))
     ); // how much lovelace is at that UTXO
 
-    txBuilder.set_fee(BigNum.from_str(Number(state.manualFee).toString()));
+    txBuilder.set_fee(BigNum.from_str(Number(manualFee).toString()));
 
     const scripts = PlutusScripts.new();
     scripts.add(
-      PlutusScript.from_bytes(Buffer.from(state.plutusScriptCborHex, "hex"))
+      PlutusScript.from_bytes(Buffer.from(plutusScriptCborHex, "hex"))
     ); //from cbor of plutus script
 
     // Add outputs
-    const outputVal = state.lovelaceLocked.toString() - Number(state.manualFee);
+    const outputVal = lovelaceLocked.toString() - Number(manualFee);
     const outputValStr = outputVal.toString();
     txBuilder.add_output(
       TransactionOutput.new(
@@ -905,15 +899,15 @@ const App = () => {
     // once the transaction is ready, we build it to get the tx body without witnesses
     const txBody = txBuilder.build();
 
-    const collateral = state.CollatUtxos;
+    const collateral = CollatUtxos;
     const inputs = TransactionInputs.new();
     collateral.forEach((utxo) => {
       inputs.add(utxo.input());
     });
 
     let datums = PlutusList.new();
-    // datums.add(PlutusData.from_bytes(Buffer.from(state.datumStr, "utf8")))
-    datums.add(PlutusData.new_integer(BigInt.from_str(state.datumStr)));
+    // datums.add(PlutusData.from_bytes(Buffer.from(datumStr, "utf8")))
+    datums.add(PlutusData.new_integer(BigInt.from_str(datumStr)));
 
     const redeemers = Redeemers.new();
 
@@ -1015,46 +1009,44 @@ const App = () => {
       Buffer.from(signedTx.to_bytes(), "utf8").toString("hex")
     );
     console.log(submittedTxHash);
-    setState({ ...state, submittedTxHash });
+    setSubmittedTxHash(submittedTxHash);
   };
 
   const buildRedeemTokenFromPlutusScript = async () => {
     const txBuilder = await initTransactionBuilder();
-    const ScriptAddress = Address.from_bech32(state.addressScriptBech32);
-    const shelleyChangeAddress = Address.from_bech32(state.changeAddress);
+    const ScriptAddress = Address.from_bech32(addressScriptBech32);
+    const shelleyChangeAddress = Address.from_bech32(changeAddress);
 
     let multiAsset = MultiAsset.new();
     let assets = Assets.new();
     assets.insert(
-      AssetName.new(Buffer.from(state.assetNameHex, "hex")), // Asset Name
-      BigNum.from_str(state.assetAmountToSend.toString()) // How much to send
+      AssetName.new(Buffer.from(assetNameHex, "hex")), // Asset Name
+      BigNum.from_str(assetAmountToSend.toString()) // How much to send
     );
 
     multiAsset.insert(
-      ScriptHash.from_bytes(Buffer.from(state.assetPolicyIdHex, "hex")), // PolicyID
+      ScriptHash.from_bytes(Buffer.from(assetPolicyIdHex, "hex")), // PolicyID
       assets
     );
 
     txBuilder.add_input(
       ScriptAddress,
       TransactionInput.new(
-        TransactionHash.from_bytes(
-          Buffer.from(state.transactionIdLocked, "hex")
-        ),
-        state.transactionIndxLocked.toString()
+        TransactionHash.from_bytes(Buffer.from(transactionIdLocked, "hex")),
+        transactionIndxLocked.toString()
       ),
       Value.new_from_assets(multiAsset)
     ); // how much lovelace is at that UTXO
 
-    txBuilder.set_fee(BigNum.from_str(Number(state.manualFee).toString()));
+    txBuilder.set_fee(BigNum.from_str(Number(manualFee).toString()));
 
     const scripts = PlutusScripts.new();
     scripts.add(
-      PlutusScript.from_bytes(Buffer.from(state.plutusScriptCborHex, "hex"))
+      PlutusScript.from_bytes(Buffer.from(plutusScriptCborHex, "hex"))
     ); //from cbor of plutus script
 
     // Add outputs
-    const outputVal = state.lovelaceLocked.toString() - Number(state.manualFee);
+    const outputVal = lovelaceLocked.toString() - Number(manualFee);
     const outputValStr = outputVal.toString();
 
     let txOutputBuilder = TransactionOutputBuilder.new();
@@ -1071,15 +1063,15 @@ const App = () => {
     // once the transaction is ready, we build it to get the tx body without witnesses
     const txBody = txBuilder.build();
 
-    const collateral = state.CollatUtxos;
+    const collateral = CollatUtxos;
     const inputs = TransactionInputs.new();
     collateral.forEach((utxo) => {
       inputs.add(utxo.input());
     });
 
     let datums = PlutusList.new();
-    // datums.add(PlutusData.from_bytes(Buffer.from(state.datumStr, "utf8")))
-    datums.add(PlutusData.new_integer(BigInt.from_str(state.datumStr)));
+    // datums.add(PlutusData.from_bytes(Buffer.from(datumStr, "utf8")))
+    datums.add(PlutusData.new_integer(BigInt.from_str(datumStr)));
 
     const redeemers = Redeemers.new();
 
@@ -1167,16 +1159,8 @@ const App = () => {
       Buffer.from(signedTx.to_bytes(), "utf8").toString("hex")
     );
     console.log(submittedTxHash);
-    setState({ ...state, submittedTxHash });
+    setSubmittedTxHash(submittedTxHash);
   };
-
-  useEffect(() => {
-    const func = async () => {
-      await refreshData();
-    };
-    func();
-  }, [state.wallets, state.whichWalletSelected]);
-
   useEffect(() => {
     const func = async () => {
       pollWallets();
@@ -1185,6 +1169,13 @@ const App = () => {
     func();
   }, []);
 
+  useEffect(() => {
+    const func = async () => {
+      await refreshData();
+    };
+    if (wallets.length > 0 && API) func();
+  }, [wallets, whichWalletSelected, API]);
+
   return (
     <div style={{ margin: "20px" }}>
       <h1>Boilerplate DApp connector to Wallet</h1>
@@ -1192,11 +1183,11 @@ const App = () => {
         <div style={{ marginBottom: 15 }}>Select wallet:</div>
         <RadioGroup
           onChange={handleWalletSelect}
-          selectedValue={state.whichWalletSelected}
+          selectedValue={whichWalletSelected}
           inline={true}
           className="wallets-wrapper"
         >
-          {state.wallets.map((key) => (
+          {wallets.map((key) => (
             <Radio key={key} className="wallet-label" value={key}>
               <img
                 src={window.cardano[key].icon}
@@ -1216,33 +1207,33 @@ const App = () => {
 
       <p style={{ paddingTop: "20px" }}>
         <span style={{ fontWeight: "bold" }}>Wallet Found: </span>
-        {`${state.walletFound}`}
+        {`${walletFound}`}
       </p>
       <p>
         <span style={{ fontWeight: "bold" }}>Wallet Connected: </span>
-        {`${state.walletIsEnabled}`}
+        {`${walletIsEnabled}`}
       </p>
       <p>
         <span style={{ fontWeight: "bold" }}>Wallet API version: </span>
-        {state.walletAPIVersion}
+        {walletAPIVersion}
       </p>
       <p>
         <span style={{ fontWeight: "bold" }}>Wallet name: </span>
-        {state.walletName}
+        {walletName}
       </p>
 
       <p>
         <span style={{ fontWeight: "bold" }}>
           Network Id (0 = testnet; 1 = mainnet):{" "}
         </span>
-        {state.networkId}
+        {networkId}
       </p>
       <p style={{ paddingTop: "20px" }}>
         <span style={{ fontWeight: "bold" }}>
           UTXOs: (UTXO #txid = ADA amount + AssetAmount + policyId.AssetName +
           ...):{" "}
         </span>
-        {state.Utxos?.map((x) => (
+        {Utxos?.map((x) => (
           <li
             style={{ fontSize: "10px" }}
             key={`${x.str}${x.multiAssetStr}`}
@@ -1251,19 +1242,19 @@ const App = () => {
       </p>
       <p style={{ paddingTop: "20px" }}>
         <span style={{ fontWeight: "bold" }}>Balance: </span>
-        {state.balance}
+        {balance}
       </p>
       <p>
         <span style={{ fontWeight: "bold" }}>Change Address: </span>
-        {state.changeAddress}
+        {changeAddress}
       </p>
       <p>
         <span style={{ fontWeight: "bold" }}>Staking Address: </span>
-        {state.rewardAddress}
+        {rewardAddress}
       </p>
       <p>
         <span style={{ fontWeight: "bold" }}>Used Address: </span>
-        {state.usedAddress}
+        {usedAddress}
       </p>
       <hr style={{ marginTop: "40px", marginBottom: "40px" }} />
 
@@ -1271,7 +1262,7 @@ const App = () => {
         id="TabsExample"
         vertical={true}
         onChange={handleTabId}
-        selectedTabId={state.selectedTabId}
+        selectedTabId={selectedTabId}
       >
         <Tab
           id="1"
@@ -1286,12 +1277,9 @@ const App = () => {
                   disabled={false}
                   leftIcon="id-number"
                   onChange={(event) =>
-                    setState({
-                      ...state,
-                      addressBech32SendADA: event.target.value,
-                    })
+                    setAddressBech32SendADA(event.target.value)
                   }
-                  value={state.addressBech32SendADA}
+                  value={addressBech32SendADA}
                 />
               </FormGroup>
               <FormGroup
@@ -1304,13 +1292,11 @@ const App = () => {
                   disabled={false}
                   leftIcon={"variable"}
                   allowNumericCharactersOnly={true}
-                  value={state.lovelaceToSend}
+                  value={lovelaceToSend}
                   min={1000000}
                   stepSize={1000000}
                   majorStepSize={1000000}
-                  onValueChange={(event) =>
-                    setState({ ...state, lovelaceToSend: event })
-                  }
+                  onValueChange={(event) => setLovelaceToSend(event)}
                 />
               </FormGroup>
 
@@ -1336,12 +1322,9 @@ const App = () => {
                   disabled={false}
                   leftIcon="id-number"
                   onChange={(event) =>
-                    setState({
-                      ...state,
-                      addressBech32SendADA: event.target.value,
-                    })
+                    setAddressBech32SendADA(event.target.value)
                   }
-                  value={state.addressBech32SendADA}
+                  value={addressBech32SendADA}
                 />
               </FormGroup>
               <FormGroup
@@ -1354,13 +1337,11 @@ const App = () => {
                   disabled={false}
                   leftIcon={"variable"}
                   allowNumericCharactersOnly={true}
-                  value={state.assetAmountToSend}
+                  value={assetAmountToSend}
                   min={1}
                   stepSize={1}
                   majorStepSize={1}
-                  onValueChange={(event) =>
-                    setState({ ...state, assetAmountToSend: event })
-                  }
+                  onValueChange={(event) => setAssetAmountToSend(event)}
                 />
               </FormGroup>
               <FormGroup
@@ -1370,20 +1351,16 @@ const App = () => {
                 <InputGroup
                   disabled={false}
                   leftIcon="id-number"
-                  onChange={(event) =>
-                    setState({ ...state, assetPolicyIdHex: event.target.value })
-                  }
-                  value={state.assetPolicyIdHex}
+                  onChange={(event) => setAssetPolicyIdHex(event.target.value)}
+                  value={assetPolicyIdHex}
                 />
               </FormGroup>
               <FormGroup helperText="Hex of the Asset Name" label="Asset Name">
                 <InputGroup
                   disabled={false}
                   leftIcon="id-number"
-                  onChange={(event) =>
-                    setState({ ...state, assetNameHex: event.target.value })
-                  }
-                  value={state.assetNameHex}
+                  onChange={(event) => setAssetNameHex(event.target.value)}
+                  value={assetNameHex}
                 />
               </FormGroup>
 
@@ -1409,12 +1386,9 @@ const App = () => {
                   disabled={false}
                   leftIcon="id-number"
                   onChange={(event) =>
-                    setState({
-                      ...state,
-                      addressScriptBech32: event.target.value,
-                    })
+                    setAddressScriptBech32(event.target.value)
                   }
-                  value={state.addressScriptBech32}
+                  value={addressScriptBech32}
                 />
               </FormGroup>
               <FormGroup
@@ -1427,13 +1401,11 @@ const App = () => {
                   disabled={false}
                   leftIcon={"variable"}
                   allowNumericCharactersOnly={true}
-                  value={state.lovelaceToSend}
+                  value={lovelaceToSend}
                   min={1000000}
                   stepSize={1000000}
                   majorStepSize={1000000}
-                  onValueChange={(event) =>
-                    setState({ ...state, lovelaceToSend: event })
-                  }
+                  onValueChange={(event) => setLovelaceToSend(event)}
                 />
               </FormGroup>
               <FormGroup
@@ -1443,10 +1415,8 @@ const App = () => {
                 <InputGroup
                   disabled={false}
                   leftIcon="id-number"
-                  onChange={(event) =>
-                    setState({ ...state, datumStr: event.target.value })
-                  }
-                  value={state.datumStr}
+                  onChange={(event) => setDatumStr(event.target.value)}
+                  value={datumStr}
                 />
               </FormGroup>
               <button
@@ -1458,6 +1428,7 @@ const App = () => {
             </div>
           }
         />
+
         <Tab
           id="4"
           title="4. Send Token to Plutus Script"
@@ -1471,12 +1442,9 @@ const App = () => {
                   disabled={false}
                   leftIcon="id-number"
                   onChange={(event) =>
-                    setState({
-                      ...state,
-                      addressScriptBech32: event.target.value,
-                    })
+                    setAddressScriptBech32(event.target.value)
                   }
-                  value={state.addressScriptBech32}
+                  value={addressScriptBech32}
                 />
               </FormGroup>
               <FormGroup
@@ -1489,13 +1457,11 @@ const App = () => {
                   disabled={false}
                   leftIcon={"variable"}
                   allowNumericCharactersOnly={true}
-                  value={state.lovelaceToSend}
+                  value={lovelaceToSend}
                   min={1000000}
                   stepSize={1000000}
                   majorStepSize={1000000}
-                  onValueChange={(event) =>
-                    setState({ ...state, lovelaceToSend: event })
-                  }
+                  onValueChange={(event) => setLovelaceToSend(event)}
                 />
               </FormGroup>
               <FormGroup
@@ -1508,13 +1474,11 @@ const App = () => {
                   disabled={false}
                   leftIcon={"variable"}
                   allowNumericCharactersOnly={true}
-                  value={state.assetAmountToSend}
+                  value={assetAmountToSend}
                   min={1}
                   stepSize={1}
                   majorStepSize={1}
-                  onValueChange={(event) =>
-                    setState({ ...state, assetAmountToSend: event })
-                  }
+                  onValueChange={(event) => setAssetAmountToSend(event)}
                 />
               </FormGroup>
               <FormGroup
@@ -1524,20 +1488,16 @@ const App = () => {
                 <InputGroup
                   disabled={false}
                   leftIcon="id-number"
-                  onChange={(event) =>
-                    setState({ ...state, assetPolicyIdHex: event.target.value })
-                  }
-                  value={state.assetPolicyIdHex}
+                  onChange={(event) => setAssetPolicyIdHex(event.target.value)}
+                  value={assetPolicyIdHex}
                 />
               </FormGroup>
               <FormGroup helperText="Hex of the Asset Name" label="Asset Name">
                 <InputGroup
                   disabled={false}
                   leftIcon="id-number"
-                  onChange={(event) =>
-                    setState({ ...state, assetNameHex: event.target.value })
-                  }
-                  value={state.assetNameHex}
+                  onChange={(event) => setAssetNameHex(event.target.value)}
+                  value={assetNameHex}
                 />
               </FormGroup>
               <FormGroup
@@ -1547,10 +1507,8 @@ const App = () => {
                 <InputGroup
                   disabled={false}
                   leftIcon="id-number"
-                  onChange={(event) =>
-                    setState({ ...state, datumStr: event.target.value })
-                  }
-                  value={state.datumStr}
+                  onChange={(event) => setDatumStr(event.target.value)}
+                  value={datumStr}
                 />
               </FormGroup>
               <button
@@ -1575,12 +1533,9 @@ const App = () => {
                   disabled={false}
                   leftIcon="id-number"
                   onChange={(event) =>
-                    setState({
-                      ...state,
-                      addressScriptBech32: event.target.value,
-                    })
+                    setAddressScriptBech32(event.target.value)
                   }
-                  value={state.addressScriptBech32}
+                  value={addressScriptBech32}
                 />
               </FormGroup>
               <FormGroup
@@ -1591,12 +1546,9 @@ const App = () => {
                   disabled={false}
                   leftIcon="id-number"
                   onChange={(event) =>
-                    setState({
-                      ...state,
-                      plutusScriptCborHex: event.target.value,
-                    })
+                    setPlutusScriptCborHex(event.target.value)
                   }
-                  value={state.plutusScriptCborHex}
+                  value={plutusScriptCborHex}
                 />
               </FormGroup>
               <FormGroup
@@ -1607,12 +1559,9 @@ const App = () => {
                   disabled={false}
                   leftIcon="id-number"
                   onChange={(event) =>
-                    setState({
-                      ...state,
-                      transactionIdLocked: event.target.value,
-                    })
+                    setTransactionIdLocked(event.target.value)
                   }
-                  value={state.transactionIdLocked}
+                  value={transactionIdLocked}
                 />
               </FormGroup>
               <FormGroup
@@ -1625,13 +1574,11 @@ const App = () => {
                   disabled={false}
                   leftIcon={"variable"}
                   allowNumericCharactersOnly={true}
-                  value={state.transactionIndxLocked}
+                  value={transactionIndxLocked}
                   min={0}
                   stepSize={1}
                   majorStepSize={1}
-                  onValueChange={(event) =>
-                    setState({ ...state, transactionIndxLocked: event })
-                  }
+                  onValueChange={(event) => setTransactionIndxLocked(event)}
                 />
               </FormGroup>
               <FormGroup
@@ -1644,13 +1591,11 @@ const App = () => {
                   disabled={false}
                   leftIcon={"variable"}
                   allowNumericCharactersOnly={true}
-                  value={state.lovelaceLocked}
+                  value={lovelaceLocked}
                   min={1000000}
                   stepSize={1000000}
                   majorStepSize={1000000}
-                  onValueChange={(event) =>
-                    setState({ ...state, lovelaceLocked: event })
-                  }
+                  onValueChange={(event) => setLovelaceLocked(event)}
                 />
               </FormGroup>
               <FormGroup
@@ -1660,10 +1605,8 @@ const App = () => {
                 <InputGroup
                   disabled={false}
                   leftIcon="id-number"
-                  onChange={(event) =>
-                    setState({ ...state, datumStr: event.target.value })
-                  }
-                  value={state.datumStr}
+                  onChange={(event) => setDatumStr(event.target.value)}
+                  value={datumStr}
                 />
               </FormGroup>
               <FormGroup
@@ -1676,13 +1619,11 @@ const App = () => {
                   disabled={false}
                   leftIcon={"variable"}
                   allowNumericCharactersOnly={true}
-                  value={state.manualFee}
+                  value={manualFee}
                   min={160000}
                   stepSize={100000}
                   majorStepSize={100000}
-                  onValueChange={(event) =>
-                    setState({ ...state, manualFee: event })
-                  }
+                  onValueChange={(event) => setManualFee(event)}
                 />
               </FormGroup>
               <button
@@ -1709,12 +1650,9 @@ const App = () => {
                   disabled={false}
                   leftIcon="id-number"
                   onChange={(event) =>
-                    setState({
-                      ...state,
-                      addressScriptBech32: event.target.value,
-                    })
+                    setAddressScriptBech32(event.target.value)
                   }
-                  value={state.addressScriptBech32}
+                  value={addressScriptBech32}
                 />
               </FormGroup>
               <FormGroup
@@ -1725,12 +1663,9 @@ const App = () => {
                   disabled={false}
                   leftIcon="id-number"
                   onChange={(event) =>
-                    setState({
-                      ...state,
-                      plutusScriptCborHex: event.target.value,
-                    })
+                    setPlutusScriptCborHex(event.target.value)
                   }
-                  value={state.plutusScriptCborHex}
+                  value={plutusScriptCborHex}
                 />
               </FormGroup>
               <FormGroup
@@ -1741,12 +1676,9 @@ const App = () => {
                   disabled={false}
                   leftIcon="id-number"
                   onChange={(event) =>
-                    setState({
-                      ...state,
-                      transactionIdLocked: event.target.value,
-                    })
+                    setTransactionIdLocked(event.target.value)
                   }
-                  value={state.transactionIdLocked}
+                  value={transactionIdLocked}
                 />
               </FormGroup>
               <FormGroup
@@ -1759,13 +1691,11 @@ const App = () => {
                   disabled={false}
                   leftIcon={"variable"}
                   allowNumericCharactersOnly={true}
-                  value={state.transactionIndxLocked}
+                  value={transactionIndxLocked}
                   min={0}
                   stepSize={1}
                   majorStepSize={1}
-                  onValueChange={(event) =>
-                    setState({ ...state, transactionIndxLocked: event })
-                  }
+                  onValueChange={(event) => setTransactionIndxLocked(event)}
                 />
               </FormGroup>
               <FormGroup
@@ -1778,13 +1708,11 @@ const App = () => {
                   disabled={false}
                   leftIcon={"variable"}
                   allowNumericCharactersOnly={true}
-                  value={state.lovelaceLocked}
+                  value={lovelaceLocked}
                   min={1000000}
                   stepSize={1000000}
                   majorStepSize={1000000}
-                  onValueChange={(event) =>
-                    setState({ ...state, lovelaceLocked: event })
-                  }
+                  onValueChange={(event) => setLovelaceLocked(event)}
                 />
               </FormGroup>
               <FormGroup
@@ -1797,13 +1725,11 @@ const App = () => {
                   disabled={false}
                   leftIcon={"variable"}
                   allowNumericCharactersOnly={true}
-                  value={state.assetAmountToSend}
+                  value={assetAmountToSend}
                   min={1}
                   stepSize={1}
                   majorStepSize={1}
-                  onValueChange={(event) =>
-                    setState({ ...state, assetAmountToSend: event })
-                  }
+                  onValueChange={(event) => setAssetAmountToSend(event)}
                 />
               </FormGroup>
               <FormGroup
@@ -1813,20 +1739,16 @@ const App = () => {
                 <InputGroup
                   disabled={false}
                   leftIcon="id-number"
-                  onChange={(event) =>
-                    setState({ ...state, assetPolicyIdHex: event.target.value })
-                  }
-                  value={state.assetPolicyIdHex}
+                  onChange={(event) => setAssetPolicyIdHex(event.target.value)}
+                  value={assetPolicyIdHex}
                 />
               </FormGroup>
               <FormGroup helperText="Hex of the Asset Name" label="Asset Name">
                 <InputGroup
                   disabled={false}
                   leftIcon="id-number"
-                  onChange={(event) =>
-                    setState({ ...state, assetNameHex: event.target.value })
-                  }
-                  value={state.assetNameHex}
+                  onChange={(event) => setAssetNameHex(event.target.value)}
+                  value={assetNameHex}
                 />
               </FormGroup>
               <FormGroup
@@ -1836,10 +1758,8 @@ const App = () => {
                 <InputGroup
                   disabled={false}
                   leftIcon="id-number"
-                  onChange={(event) =>
-                    setState({ ...state, datumStr: event.target.value })
-                  }
-                  value={state.datumStr}
+                  onChange={(event) => setDatumStr(event.target.value)}
+                  value={datumStr}
                 />
               </FormGroup>
               <FormGroup
@@ -1852,13 +1772,11 @@ const App = () => {
                   disabled={false}
                   leftIcon={"variable"}
                   allowNumericCharactersOnly={true}
-                  value={state.manualFee}
+                  value={manualFee}
                   min={160000}
                   stepSize={100000}
                   majorStepSize={100000}
-                  onValueChange={(event) =>
-                    setState({ ...state, manualFee: event })
-                  }
+                  onValueChange={(event) => setManualFee(event)}
                 />
               </FormGroup>
               <button
@@ -1875,10 +1793,10 @@ const App = () => {
 
       <hr style={{ marginTop: "40px", marginBottom: "40px" }} />
 
-      {/*<p>{`Unsigned txBodyCborHex: ${state.txBodyCborHex_unsigned}`}</p>*/}
-      {/*<p>{`Signed txBodyCborHex: ${state.txBodyCborHex_signed}`}</p>*/}
-      <p>{`Submitted Tx Hash: ${state.submittedTxHash}`}</p>
-      <p>{state.submittedTxHash ? "check your wallet !" : ""}</p>
+      {/*<p>{`Unsigned txBodyCborHex: ${txBodyCborHex_unsigned}`}</p>*/}
+      {/*<p>{`Signed txBodyCborHex: ${txBodyCborHex_signed}`}</p>*/}
+      <p>{`Submitted Tx Hash: ${submittedTxHash}`}</p>
+      <p>{submittedTxHash ? "check your wallet !" : ""}</p>
     </div>
   );
 };
